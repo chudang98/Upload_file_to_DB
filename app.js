@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const crypto = require('crypto');
 const mongoose = require('mongoose');
+
 const multer = require('multer');
 const GridFsStorage = require('multer-gridfs-storage');
 const Grid = require('gridfs-stream');
@@ -16,14 +17,29 @@ app.use(methodOverride('_method'));
 app.set('view engine', 'ejs');
 
 // Mongo URI
-const mongoURI = 'mongodb://brad:brad@ds257838.mlab.com:57838/mongouploads';
+const mongoURI = 'mongodb://duck:chudang1003@cluster0-shard-00-00-y4xgg.mongodb.net:27017,cluster0-shard-00-01-y4xgg.mongodb.net:27017,cluster0-shard-00-02-y4xgg.mongodb.net:27017/test?ssl=true&replicaSet=Cluster0-shard-0&authSource=admin&retryWrites=true&w=majority';
 
+Grid.mongo = mongoose.mongo;
 // Create mongo connection
-const conn = mongoose.createConnection(mongoURI);
-
 // Init gfs
 let gfs;
 
+mongoose
+  .connect(mongoURI, {
+    userNewUrlParser: true,
+    userCreateIndex: true,
+    userFindAndModify: false,
+  })
+  .then((con) => {
+    console.log('Connection success to server...');
+  })
+  .catch((err) => {
+    console.log(err);
+  });
+
+const conn = mongoose.createConnection(mongoURI);
+
+// Init gfs
 conn.once('open', () => {
   // Init stream
   gfs = Grid(conn.db, mongoose.mongo);
@@ -35,20 +51,15 @@ const storage = new GridFsStorage({
   url: mongoURI,
   file: (req, file) => {
     return new Promise((resolve, reject) => {
-      crypto.randomBytes(16, (err, buf) => {
-        if (err) {
-          return reject(err);
-        }
-        const filename = buf.toString('hex') + path.extname(file.originalname);
-        const fileInfo = {
-          filename: filename,
-          bucketName: 'uploads'
-        };
-        resolve(fileInfo);
-      });
+      const fileInfo = {
+        filename: file.originalname,
+        bucketName: 'uploads'
+      };
+      resolve(fileInfo);
     });
   }
 });
+
 const upload = multer({ storage });
 
 // @route GET /
@@ -102,6 +113,7 @@ app.get('/files', (req, res) => {
 app.get('/files/:filename', (req, res) => {
   gfs.files.findOne({ filename: req.params.filename }, (err, file) => {
     // Check if file
+    
     if (!file || file.length === 0) {
       return res.status(404).json({
         err: 'No file exists'
@@ -148,6 +160,6 @@ app.delete('/files/:id', (req, res) => {
   });
 });
 
-const port = 5000;
+const port = 3000;
 
 app.listen(port, () => console.log(`Server started on port ${port}`));
